@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6" lang="en"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7" lang="en"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8" lang="en"> <![endif]-->
+<!--[if gt IE 8]><!-->  <html class="no-js" lang="en"> <!--<![endif]-->
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	
+	<title>pydown</title>
+	
+	<meta name="description" content="A jQuery library for modern HTML presentations">
+	<meta name="author" content="Caleb Troughton">
+	<meta name="viewport" content="width=1024, user-scalable=no">
+	
+	<!-- Core and extension CSS files -->
+	<link rel="stylesheet" href="css/deck.core.css">
+	<link rel="stylesheet" href="css/deck.status.css">
+	<link rel="stylesheet" href="css/deck.scale.css">
+	
+	<!-- Style theme. More available in /themes/style/ or create your own. -->
+	<link rel="stylesheet" href="css/web-2.0.css">
+	
+	<!-- Transition theme. More available in /themes/transition/ or create your own. -->
+	<link rel="stylesheet" href="css/horizontal-slide.css">
+
+	<link rel="stylesheet" href="css/md_hl.css">
+	
+	<script src="js/modernizr.custom.js"></script>
+</head>
+
+<body class="deck-container">
+
+<!-- Begin slides -->
+<section class="slide "><div class="content"><h2>Ceph с высоты птичьего полета</h2>
+<h3>Данилов Константин, Mirantis</h3>
+<h3>http://koder-ua.blogspot.com/</h3>
+<h3>https://github.com/koder-ua/</h3></div></section>
+<section class="slide "><div class="content"><h3>Эволюция систем хранения - 90+х</h3>
+<ul>
+<li>Большой Дорогой Яшик С RAID</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Эволюция систем хранения - 2000+</h3>
+<ul>
+<li>Множество дешевых серверов</li>
+<li>CAP</li>
+<li>ACID vs. BASE</li>
+<li>Mongo - прямоугольная архитуктура</li>
+<li>reak, cassandra - "кольцевая" архитектура</li>
+<li>Sheepdog</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Ceph from 1000ft</h3>
+<ul>
+<li>Ceph</li>
+<li>Согласованность + надежность</li>
+<li>CRUSH </li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Ceph from 1000ft</h3>
+<ul>
+<li>Mon + OSD + MDS + RadosGW</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Mon</h3>
+<ul>
+<li>Хранят согласованную конфигурацию кластера</li>
+<li>Передают ее клиентам и OSD нодам</li>
+</ul>
+<p>Конфигурация включает:</p>
+<ul>
+<li>Часть настроек</li>
+<li>Дерево нод</li>
+<li>Правила CRUSH</li>
+<li>Информацию о пулах</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Rados</h3>
+<ul>
+<li>Reliable Autonomic Distributed Object Store</li>
+<li>librados</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Mon</h3>
+<ul>
+<li>Нечетное число</li>
+<li>2N + 1 мониторов спокойно переносят потерю N машин</li>
+<li>При отсутвии кворума мониторов кластер становится полностью неработоспособным</li>
+<li>Генерирую небольшую нагрузку</li>
+<li>Требуют низкую латентность дисковой системы</li>
+<li>И стабильное сетевое соединение</li>
+<li>до ~7 штук</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>OSD</h3>
+<ul>
+<li>Хранит данные, фактически предоставляя сетевой диступ к диску</li>
+<li>По одному OSD на один диск (Можно несколько на один SSD)</li>
+<li>Заменяют RAID</li>
+<li>LVM только мешает</li>
+<li>Отвечает за передачу данных от и к клиенту и репликацию</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>MDS</h3>
+<ul>
+<li>Хранит метаданные CephFS</li>
+<li>Промышленно не используется</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>RadosGW</h3>
+<ul>
+<li>Гейтвей, иммитирующий Swift API поверх Rados</li>
+<li>Промышленно не используется</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Авторизация</h3>
+<ul>
+<li>http://docs.ceph.com/docs/master/rados/operations/user-management/</li>
+<li>У всех свои ключи</li>
+<li>ceph auth list</li>
+<li>/etc/ceph/ceph.client.admin.keyring</li>
+<li>/var/lib/ceph/bootstrap-osd/</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Конфигурация и логи</h3>
+<ul>
+<li>/etc/ceph/ceph.conf</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>CLI</h3>
+<ul>
+<li>rados - операции с пулами/объектами, тесты скорости</li>
+<li>ceph - остальное</li>
+<li>СMD --format json | json_pp | less</li>
+<li>СMD -c CONF_FILE -k KEY_FILE</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>OSD tree</h3>
+<ul>
+<li>ceph osd tree</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Хранение данных - объекты</h3>
+<ul>
+<li>Все хранится в объектах (кроме данных монитора)</li>
+<li>Объект - именованный кусок данных переменного размера с аттрибутами</li>
+<li>Подобие файлов</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Хранение данных - PG</h3>
+<ul>
+<li>Оптимизация для ускорения работы с CRUSH</li>
+<li>Объекты группируются в PG</li>
+<li>Все объекты из PG располагаются на одном наборе OSD нод</li>
+<li>Чем больше PG, тем равномернее распределение</li>
+<li>Чем больше PG, тем больше RAM &amp; CPU используется</li>
+<li>Чем больше PG, тем дольше согласование состояние</li>
+<li>PG не влияет на скорость</li>
+<li>Нормальным считается 100-300 PG на OSD - не забываем про репликацию и это в сумме по всем пулам</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Пулы</h3>
+<ul>
+<li>Именованные группы объектов и пространсва имен</li>
+<li>Подобны папкам</li>
+<li>Пул имеет свой размер, правила репликации, др</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Пулы</h3>
+<ul>
+<li>EC</li>
+<li>Cache</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Пулы CLI список</h3>
+<ul>
+<li>rados lspools / ceph osd lspools</li>
+<li>ceph osd dump</li>
+<li>rados df</li>
+<li>ceph osd df</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Пулы CLI создание</h3>
+<ul>
+<li>ceph osd pool create {pool-name} {pg-num} [crush-ruleset-name]</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Пулы CLI mksnap/</h3>
+<ul>
+<li>ceph osd pool create {pool-name} {pg-num} [crush-ruleset-name]</li>
+</ul>
+<p>ceph osd map test my-object
+ceph pg 4.0 query</p>
+<p>$ rados put -p testpool logo.png logo.png
+$ ceph osd map testpool logo.png</p></div></section>
+<section class="slide "><div class="content"><h3>RBD</h3>
+<ul>
+<li>Диск бьется на блоки (по умолчанию 4M)</li>
+<li>Каждому блоку ставиться в соответствие объект</li>
+<li>Объекты создаются отложенно, при первом обращении</li>
+<li>http://ceph.com/docs/master/start/quick-rbd/</li>
+<li>krbd в ядре бывает старым и может не смочь смотнтировать устройство</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Вопросы и помидоры</h3></div></section>
+
+
+<!-- deck.status snippet -->
+<p class="deck-status">
+	<span class="deck-status-current"></span>
+	/
+	<span class="deck-status-total"></span>
+</p>
+
+<!-- Grab CDN jQuery, with a protocol relative URL; fall back to local if offline -->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+<script>window.jQuery || document.write('<script src="js/jquery-1.7.2.min.js"><\/script>')</script>
+
+<!-- Deck Core and extensions -->
+<script src="js/deck.core.js"></script>
+<script src="js/deck.status.js"></script>
+<script src="js/deck.scale.js"></script>
+
+<!-- Initialize the deck -->
+<script>
+$(function() {
+	$.deck('.slide');
+});
+</script>
+
+</body>
+</html>
