@@ -1,29 +1,30 @@
 !SLIDE
-## Ceph с высоты птичьего полета
+## Ceph from 1000ft
 
-### Данилов Константин, Mirantis
+### Danylov Kostiantyn, Mirantis
 ### http://koder-ua.blogspot.com/
 ### https://github.com/koder-ua/
 
 !SLIDE
-### Эволюция систем хранения - 90+х
-* Большой Дорогой Яшик С RAID
+### Storage
+* Free lunch is over (not really)
 
+* Consistency
+* Availability
+* Partitioning tolerance
 
 !SLIDE
-### Эволюция систем хранения - 2000+
-* Множество дешевых серверов
-* CAP
-* ACID vs. BASE
-* Mongo - прямоугольная архитуктура
-* reak, cassandra - "кольцевая" архитектура
-* Sheepdog
+### Modern storages - what will you do in case of P
+* There is no P - NAS (Netapp, EMC, ...)
+* A - Cassandra*, Reak*, ...
+* C - Ceph, Sheepdog, ...
 
 !SLIDE
 ### Ceph from 1000ft
-* Ceph
-* Согласованность + надежность
-* CRUSH 
+* Object storage (Rados)
+* CRUSH - controled distribution, aware of failure domains
+* Pools - namespaces with storage settings
+* RBD, RadosGW, CephFS
 
 !SLIDE
 ### Ceph from 1000ft
@@ -31,15 +32,24 @@
 
 !SLIDE
 ### Mon
-* Хранят согласованную конфигурацию кластера
-* Передают ее клиентам и OSD нодам
+* Keep consistent cluster configuration
+* Survive nodes failure as long as quorum online
+* Pass config to OSD/CLients/etc
+* Store/process no user data
 
-Конфигурация включает:
+Config consists of:
 
-* Часть настроек
-* Дерево нод
-* Правила CRUSH
-* Информацию о пулах
+* CLuster settings
+* Nodes tree (failure domain aware)
+* CRUSH
+* Pool information
+
+!SLIDE
+### Mon
+* When no quorum present - cluster became fully unavailable
+* Creates very moderate load
+* Requires low IO/CPU/Net latency
+* Up to ~7 nodes, ususally 3 or 5
 
 !SLIDE
 ### Rados
@@ -47,88 +57,100 @@
 * librados
 
 !SLIDE
-### Mon
-* Нечетное число
-* 2N + 1 мониторов спокойно переносят потерю N машин
-* При отсутвии кворума мониторов кластер становится полностью неработоспособным
-* Генерирую небольшую нагрузку
-* Требуют низкую латентность дисковой системы
-* И стабильное сетевое соединение
-* до ~7 штук
-
-!SLIDE
 ### OSD
-* Хранит данные, фактически предоставляя сетевой диступ к диску
-* По одному OSD на один диск (Можно несколько на один SSD)
-* Заменяют RAID
-* LVM только мешает
-* Отвечает за передачу данных от и к клиенту и репликацию
+* Store user data; remote access to HDD
+* 1 OSD per 1 HDD
+* Not need any RAID
+* LVM should not be used
+* Responcible for data replication
 
 !SLIDE
 ### MDS
-* Хранит метаданные CephFS
-* Промышленно не используется
+* CephFS metadata storage
+* Not used in production yet
 
 !SLIDE
 ### RadosGW
-* Гейтвей, иммитирующий Swift API поверх Rados
-* Промышленно не используется
+* Swift API on top of Rados
 
 !SLIDE
-### Авторизация
-* http://docs.ceph.com/docs/master/rados/operations/user-management/
-* У всех свои ключи
-* ceph auth list
-* /etc/ceph/ceph.client.admin.keyring
-* /var/lib/ceph/bootstrap-osd/
-
-
-!SLIDE
-### Конфигурация и логи
+### Configuration and logs
 * /etc/ceph/ceph.conf
-
 
 !SLIDE
 ### CLI
-* rados - операции с пулами/объектами, тесты скорости
-* ceph - остальное
+* rados - pools/objects operations, some very basic performance tests (ones should never use thos tests)
+* ceph - the rest
+* rbd - rbd commands
 * СMD --format json | json_pp | less
 * СMD -c CONF_FILE -k KEY_FILE
+
+!SLIDE
+### Authentification + Autorization - CephX
+* http://docs.ceph.com/docs/master/rados/operations/user-management/
+* Each user and service has it own key with own previledges
+* ceph auth list
+* /etc/ceph/ceph.client.admin.keyring
+* /var/lib/ceph/bootstrap-osd/
 
 !SLIDE
 ### OSD tree
 * ceph osd tree
 
 !SLIDE
-### Хранение данных - объекты
-* Все хранится в объектах (кроме данных монитора)
-* Объект - именованный кусок данных переменного размера с аттрибутами
-* Подобие файлов
+### How data stored
+* File-like
+* Everything is stored in object (except for monitor data)
+* Each object has uniq name(in it's pool), data and attributes
 
 !SLIDE
-### Хранение данных - PG
-* Оптимизация для ускорения работы с CRUSH
-* Объекты группируются в PG
-* Все объекты из PG располагаются на одном наборе OSD нод
-* Чем больше PG, тем равномернее распределение
-* Чем больше PG, тем больше RAM & CPU используется
-* Чем больше PG, тем дольше согласование состояние
-* PG не влияет на скорость
-* Нормальным считается 100-300 PG на OSD - не забываем про репликацию и это в сумме по всем пулам
+### Data storage - CRUSH
+* Simple programming language to select OSD's using OSD tree
+
+ceph osd getcrushmap -o FILE.bin
+crushtool -d FILE.bin -o FILE.txt
+EDIT FILE.txt
+crushtool -c FILE.txt -o FILE_new.bin
+ceph osd setcrushmap -i FILE_new.bin
+
 
 !SLIDE
-### Пулы
-* Именованные группы объектов и пространсва имен
-* Подобны папкам
-* Пул имеет свой размер, правила репликации, др
+### Data storage - CRUSH
+
+	rule RULENAME {
+	    ruleset <ruleset>
+	    type [ replicated | erasure ]
+	    min_size <min-size>
+	    max_size <max-size>
+	    step take <bucket-type>
+	    step [choose|chooseleaf] [firstn|indep] <N> <bucket-type>
+	    step emit
+	}
 
 !SLIDE
-### Пулы
+### PG
+![PG](../images/ceph-data-placement.jpg)
+
+!SLIDE
+### PG
+* Optimization, which allows to process objects by groups
+* Each object beelong to one PG
+* All object from same PG stored on same set of OSD
+* More PG leads to more even data distribution and better performance
+* More PG leads to more RAM and CPU used
+* More PG leads to longer peering
+* 100-300 PG per OSD (with replication) 
+
+!SLIDE
+### Pools
+* Object namespaces
+* Like folders on FS
+* Replication, storage and autentification settings
 * EC
 * Cache
 
 !SLIDE
-### Пулы CLI список
+### Pools CLI
 * rados lspools / ceph osd lspools
 * ceph osd dump
 * rados df
@@ -150,12 +172,14 @@ $ ceph osd map testpool logo.png
 
 !SLIDE
 ### RBD
-* Диск бьется на блоки (по умолчанию 4M)
-* Каждому блоку ставиться в соответствие объект
-* Объекты создаются отложенно, при первом обращении
-* http://ceph.com/docs/master/start/quick-rbd/
-* krbd в ядре бывает старым и может не смочь смотнтировать устройство
+![rbd](../images/rbd.jpg)
 
 !SLIDE
-### Вопросы и помидоры
+### RBD
+* Virtual disk splitted on fixed-size blocks  (powr of 2, 4M by default)
+* Ech block is mapped to special object with known name 
+* Object, as usually, ar ecreated on first request
+* http://ceph.com/docs/master/start/quick-rbd/
+* krbd in kernel may be too old
+
 

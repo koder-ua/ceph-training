@@ -75,3 +75,4 @@ rule replicated_ruleset {
 
 !SLIDE
 ### Вопросы и помидоры
+`

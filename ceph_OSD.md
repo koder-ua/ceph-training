@@ -1,49 +1,47 @@
 !SLIDE
-## Устройство OSD 
+## OSD 
 
-### Данилов Константин, Mirantis
+### Danylov Kostiantyn, Mirantis
 ### http://koder-ua.blogspot.com/
 ### https://github.com/koder-ua/
 
 !SLIDE
 ### OSD
-* Хранит данные, фактически предоставляя сетевой диступ к диску
-* По одному OSD на один диск (Можно несколько на один SSD)
-* Заменяют RAID
-* LVM только мешает
-* Отвечает за передачу данных от и к клиенту и репликацию
+* Store user data, essentially an RPC to drive
+* Replication
 
 !SLIDE
-### Хранение данных
-* Журнал + основное хранилище
-* Все данные пишутся два раза
+### Data storage
+* Journal + main storage
+* All data stored twice
+![arch](../images/ceph-io.png)
 
 !SLIDE
-### Хранение данных - Журнал
-* Небольшой циклический буффер
-* Файл или раздел
-* Данные в журнал пишутся синхронно
-* Клиент не получает подтверждения, пока данные не будут записанны в журналы на всех нодах
-* Порча журнала чаще всего невосстановима
+### Journal
+* Small cycle buffer
+* File or partition
+* Works in a sync mode
+* Client would not get write ack, untill data reach journal on all nodes
+* In most cases broken journal means broked OSD
 
 !SLIDE
-### Хранение данных - Основное хранилище
-* Файлы в папках
-* Данные пишутся асинхронно
-* Иногда сбрасываются на диск
+### Main storage
+* Files in folder
+* Async mode
+* Eventually sync to disk (5s by default)
 * sudo ceph daemon osd.0 config show | grep filestore
 * sudo ceph daemon osd.0 config show | grep filestore_max_sync_interval
 
 !SLIDE
-### Хранение данных - Рекомендации
-* Журнал на отдельном разделе SSD или на отдельном разделе
-* 4-6 журналов на SSD
-* Размер журнала 2 * filestore_max_sync_interval * OSD_BW (~10Gb обычно)
-* Увеличение filestore_max_sync_interval повышает производительность, но проводит к "подмерзаниям"
+### Recommendation
+* Journal in separated partition
+* 4-6 journals per SSD
+* J. size = 2 * filestore_max_sync_interval * OSD_BW (~10Gb)
+* Increasing filestore_max_sync_interval increases performance, but leads to "freeses"
 
 !SLIDE
-### Хранение данных - Основное хранилище
-* Вес OSD
+### Main storage
+* OSD weight
 * sudo ceph daemon osd.0 config show | grep osd_data
 * sudo ceph daemon osd.0 config show | grep osd_journal
 * /var/lib/ceph/osd/ceph-XXX
@@ -52,34 +50,29 @@
 * ls -l /var/lib/ceph/osd/ceph-0/current
 
 !SLIDE
-### Хранение данных - Основное хранилище
-* При старте OSD сканирует папку с данными
-* Повторяет незакоммиченные операции из журнала
-* Общается с другими OSD, что бы понять что происходило, пока оно лежало
-* Возможно реплицирует нехватающие данные
+### Main storage
+OSD during start up:
+
+* Replay uncommited operations from journal
+* Peering all PG with other OSD
+* Receive all missed updates
 
 !SLIDE
-### Запись данных
-* Клиент мапит объект на PG
-* Клиент мапит PG+Pool использую crush на набор OSD
-* Клиент связывается с первичной OSD и передает ей операцию
-* Первичная OSD пишет данные в журнал, в основное хранилище и передает данные в остальные OSD
-* При этом используется отдельная репликационная сеть
-* OSD отвечают при успешной записи
-* Первичная OSD отвечает клиенту
+### Write sequence
+* Client map object on PG
+* Client uses Crush to map PG+Pool onto set of OSD
+* Client connect to primary OSD and send write using public network
+* Primary OSD write data to journal, main storage and on other OSD using cluster network
+* Client get ack, when all OSD commits journal
+
+!SLIDE
 * OSD acting set
 * full_ratio, nearfull_ratio
-
-!SLIDE
-### Запись данных
 * sudo ceph daemon osd.0 config show | grep cluster_network
 * sudo ceph daemon osd.0 config show | grep public_network
 
 !SLIDE
-### Чтение данных
-* Клиент мапит объект на PG
-* Клиент мапит PG+Pool использую crush на набор OSD
-* Клиент связывается с первичной OSD и она возвращает ему данные
-
-!SLIDE
-### Вопросы и помидоры
+### Read data
+* Client map object on PG
+* Client uses Crush to map PG+Pool onto set of OSD
+* Client end read request to primary OSD
