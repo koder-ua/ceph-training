@@ -32,28 +32,33 @@
 <body class="deck-container">
 
 <!-- Begin slides -->
-<section class="slide "><div class="content"><h2>Ceph с высоты птичьего полета</h2>
-<h3>Данилов Константин, Mirantis</h3>
+<section class="slide "><div class="content"><h2>Ceph from 1000ft</h2>
+<h3>Danylov Kostiantyn, Mirantis</h3>
 <h3>http://koder-ua.blogspot.com/</h3>
 <h3>https://github.com/koder-ua/</h3></div></section>
-<section class="slide "><div class="content"><h3>Эволюция систем хранения - 90+х</h3>
+<section class="slide "><div class="content"><h3>Storage</h3>
 <ul>
-<li>Большой Дорогой Яшик С RAID</li>
+<li>
+<p>Free lunch is over (not really)</p>
+</li>
+<li>
+<p>Consistency</p>
+</li>
+<li>Availability</li>
+<li>Partitioning tolerance</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Эволюция систем хранения - 2000+</h3>
+<section class="slide "><div class="content"><h3>Modern storages - what will you do in case of P</h3>
 <ul>
-<li>Множество дешевых серверов</li>
-<li>CAP</li>
-<li>ACID vs. BASE</li>
-<li>Mongo - прямоугольная архитуктура</li>
-<li>reak, cassandra - "кольцевая" архитектура</li>
-<li>Sheepdog</li>
+<li>There is no P - NAS (Netapp, EMC, ...)</li>
+<li>A - Cassandra<em>, Reak</em>, ...</li>
+<li>C - Ceph, Sheepdog, ...</li>
 </ul></div></section>
 <section class="slide "><div class="content"><h3>Ceph from 1000ft</h3>
 <ul>
-<li>Ceph</li>
-<li>Согласованность + надежность</li>
-<li>CRUSH </li>
+<li>Object storage (Rados)</li>
+<li>CRUSH - controled distribution, aware of failure domains</li>
+<li>Pools - namespaces with storage settings</li>
+<li>RBD, RadosGW, CephFS</li>
 </ul></div></section>
 <section class="slide "><div class="content"><h3>Ceph from 1000ft</h3>
 <ul>
@@ -61,101 +66,118 @@
 </ul></div></section>
 <section class="slide "><div class="content"><h3>Mon</h3>
 <ul>
-<li>Хранят согласованную конфигурацию кластера</li>
-<li>Передают ее клиентам и OSD нодам</li>
+<li>Keep consistent cluster configuration</li>
+<li>Survive nodes failure as long as quorum online</li>
+<li>Pass config to OSD/CLients/etc</li>
+<li>Store/process no user data</li>
 </ul>
-<p>Конфигурация включает:</p>
+<p>Config consists of:</p>
 <ul>
-<li>Часть настроек</li>
-<li>Дерево нод</li>
-<li>Правила CRUSH</li>
-<li>Информацию о пулах</li>
+<li>CLuster settings</li>
+<li>Nodes tree (failure domain aware)</li>
+<li>CRUSH</li>
+<li>Pool information</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Mon</h3>
+<ul>
+<li>When no quorum present - cluster became fully unavailable</li>
+<li>Creates very moderate load</li>
+<li>Requires low IO/CPU/Net latency</li>
+<li>Up to ~7 nodes, ususally 3 or 5</li>
 </ul></div></section>
 <section class="slide "><div class="content"><h3>Rados</h3>
 <ul>
 <li>Reliable Autonomic Distributed Object Store</li>
 <li>librados</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Mon</h3>
-<ul>
-<li>Нечетное число</li>
-<li>2N + 1 мониторов спокойно переносят потерю N машин</li>
-<li>При отсутвии кворума мониторов кластер становится полностью неработоспособным</li>
-<li>Генерирую небольшую нагрузку</li>
-<li>Требуют низкую латентность дисковой системы</li>
-<li>И стабильное сетевое соединение</li>
-<li>до ~7 штук</li>
-</ul></div></section>
 <section class="slide "><div class="content"><h3>OSD</h3>
 <ul>
-<li>Хранит данные, фактически предоставляя сетевой диступ к диску</li>
-<li>По одному OSD на один диск (Можно несколько на один SSD)</li>
-<li>Заменяют RAID</li>
-<li>LVM только мешает</li>
-<li>Отвечает за передачу данных от и к клиенту и репликацию</li>
+<li>Store user data; remote access to HDD</li>
+<li>1 OSD per 1 HDD</li>
+<li>Not need any RAID</li>
+<li>LVM should not be used</li>
+<li>Responcible for data replication</li>
 </ul></div></section>
 <section class="slide "><div class="content"><h3>MDS</h3>
 <ul>
-<li>Хранит метаданные CephFS</li>
-<li>Промышленно не используется</li>
+<li>CephFS metadata storage</li>
+<li>Not used in production yet</li>
 </ul></div></section>
 <section class="slide "><div class="content"><h3>RadosGW</h3>
 <ul>
-<li>Гейтвей, иммитирующий Swift API поверх Rados</li>
-<li>Промышленно не используется</li>
+<li>Swift API on top of Rados</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Авторизация</h3>
-<ul>
-<li>http://docs.ceph.com/docs/master/rados/operations/user-management/</li>
-<li>У всех свои ключи</li>
-<li>ceph auth list</li>
-<li>/etc/ceph/ceph.client.admin.keyring</li>
-<li>/var/lib/ceph/bootstrap-osd/</li>
-</ul></div></section>
-<section class="slide "><div class="content"><h3>Конфигурация и логи</h3>
+<section class="slide "><div class="content"><h3>Configuration and logs</h3>
 <ul>
 <li>/etc/ceph/ceph.conf</li>
 </ul></div></section>
 <section class="slide "><div class="content"><h3>CLI</h3>
 <ul>
-<li>rados - операции с пулами/объектами, тесты скорости</li>
-<li>ceph - остальное</li>
+<li>rados - pools/objects operations, some very basic performance tests (ones should never use thos tests)</li>
+<li>ceph - the rest</li>
+<li>rbd - rbd commands</li>
 <li>СMD --format json | json_pp | less</li>
 <li>СMD -c CONF_FILE -k KEY_FILE</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Authentification + Autorization - CephX</h3>
+<ul>
+<li>http://docs.ceph.com/docs/master/rados/operations/user-management/</li>
+<li>Each user and service has it own key with own previledges</li>
+<li>ceph auth list</li>
+<li>/etc/ceph/ceph.client.admin.keyring</li>
+<li>/var/lib/ceph/bootstrap-osd/</li>
 </ul></div></section>
 <section class="slide "><div class="content"><h3>OSD tree</h3>
 <ul>
 <li>ceph osd tree</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Хранение данных - объекты</h3>
+<section class="slide "><div class="content"><h3>How data stored</h3>
 <ul>
-<li>Все хранится в объектах (кроме данных монитора)</li>
-<li>Объект - именованный кусок данных переменного размера с аттрибутами</li>
-<li>Подобие файлов</li>
+<li>File-like</li>
+<li>Everything is stored in object (except for monitor data)</li>
+<li>Each object has uniq name(in it's pool), data and attributes</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Хранение данных - PG</h3>
+<section class="slide "><div class="content"><h3>Data storage - CRUSH</h3>
 <ul>
-<li>Оптимизация для ускорения работы с CRUSH</li>
-<li>Объекты группируются в PG</li>
-<li>Все объекты из PG располагаются на одном наборе OSD нод</li>
-<li>Чем больше PG, тем равномернее распределение</li>
-<li>Чем больше PG, тем больше RAM &amp; CPU используется</li>
-<li>Чем больше PG, тем дольше согласование состояние</li>
-<li>PG не влияет на скорость</li>
-<li>Нормальным считается 100-300 PG на OSD - не забываем про репликацию и это в сумме по всем пулам</li>
+<li>Simple programming language to select OSD's using OSD tree</li>
+</ul>
+<p>ceph osd getcrushmap -o FILE.bin
+crushtool -d FILE.bin -o FILE.txt
+EDIT FILE.txt
+crushtool -c FILE.txt -o FILE_new.bin
+ceph osd setcrushmap -i FILE_new.bin</p></div></section>
+<section class="slide "><div class="content"><h3>Data storage - CRUSH</h3>
+<div class="codehilite"><pre>rule RULENAME {
+    ruleset <span class="nt">&lt;ruleset&gt;</span>
+    type <span class="cp">[</span> <span class="nx">replicated</span> <span class="o">|</span> <span class="nx">erasure</span> <span class="cp">]</span>
+    min_size <span class="nt">&lt;min</span><span class="na">-size</span><span class="nt">&gt;</span>
+    max_size <span class="nt">&lt;max</span><span class="na">-size</span><span class="nt">&gt;</span>
+    step take <span class="nt">&lt;bucket</span><span class="na">-type</span><span class="nt">&gt;</span>
+    step <span class="cp">[</span><span class="nx">choose</span><span class="o">|</span><span class="nx">chooseleaf</span><span class="cp">]</span> <span class="cp">[</span><span class="nx">firstn</span><span class="o">|</span><span class="nx">indep</span><span class="cp">]</span> <span class="nt">&lt;N&gt;</span> <span class="nt">&lt;bucket</span><span class="na">-type</span><span class="nt">&gt;</span>
+    step emit
+}
+</pre></div></div></section>
+<section class="slide "><div class="content"><h3>PG</h3>
+<p><img alt="PG" src="../images/ceph-data-placement.jpg" /></p></div></section>
+<section class="slide "><div class="content"><h3>PG</h3>
+<ul>
+<li>Optimization, which allows to process objects by groups</li>
+<li>Each object beelong to one PG</li>
+<li>All object from same PG stored on same set of OSD</li>
+<li>More PG leads to more even data distribution and better performance</li>
+<li>More PG leads to more RAM and CPU used</li>
+<li>More PG leads to longer peering</li>
+<li>100-300 PG per OSD (with replication) </li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Пулы</h3>
+<section class="slide "><div class="content"><h3>Pools</h3>
 <ul>
-<li>Именованные группы объектов и пространсва имен</li>
-<li>Подобны папкам</li>
-<li>Пул имеет свой размер, правила репликации, др</li>
-</ul></div></section>
-<section class="slide "><div class="content"><h3>Пулы</h3>
-<ul>
+<li>Object namespaces</li>
+<li>Like folders on FS</li>
+<li>Replication, storage and autentification settings</li>
 <li>EC</li>
 <li>Cache</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Пулы CLI список</h3>
+<section class="slide "><div class="content"><h3>Pools CLI</h3>
 <ul>
 <li>rados lspools / ceph osd lspools</li>
 <li>ceph osd dump</li>
@@ -175,14 +197,15 @@ ceph pg 4.0 query</p>
 <p>$ rados put -p testpool logo.png logo.png
 $ ceph osd map testpool logo.png</p></div></section>
 <section class="slide "><div class="content"><h3>RBD</h3>
+<p><img alt="rbd" src="../images/rbd.jpg" /></p></div></section>
+<section class="slide "><div class="content"><h3>RBD</h3>
 <ul>
-<li>Диск бьется на блоки (по умолчанию 4M)</li>
-<li>Каждому блоку ставиться в соответствие объект</li>
-<li>Объекты создаются отложенно, при первом обращении</li>
+<li>Virtual disk splitted on fixed-size blocks  (powr of 2, 4M by default)</li>
+<li>Ech block is mapped to special object with known name </li>
+<li>Object, as usually, ar ecreated on first request</li>
 <li>http://ceph.com/docs/master/start/quick-rbd/</li>
-<li>krbd в ядре бывает старым и может не смочь смотнтировать устройство</li>
+<li>krbd in kernel may be too old</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Вопросы и помидоры</h3></div></section>
 
 
 <!-- deck.status snippet -->

@@ -32,49 +32,47 @@
 <body class="deck-container">
 
 <!-- Begin slides -->
-<section class="slide "><div class="content"><h2>Устройство OSD</h2>
+<section class="slide "><div class="content"><h2>OSD</h2>
 <h3>Данилов Константин, Mirantis</h3>
 <h3>http://koder-ua.blogspot.com/</h3>
 <h3>https://github.com/koder-ua/</h3></div></section>
 <section class="slide "><div class="content"><h3>OSD</h3>
 <ul>
-<li>Хранит данные, фактически предоставляя сетевой диступ к диску</li>
-<li>По одному OSD на один диск (Можно несколько на один SSD)</li>
-<li>Заменяют RAID</li>
-<li>LVM только мешает</li>
-<li>Отвечает за передачу данных от и к клиенту и репликацию</li>
+<li>Store user data, essentially an RPC to drive</li>
+<li>Replication</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Хранение данных</h3>
+<section class="slide "><div class="content"><h3>Data storage</h3>
 <ul>
-<li>Журнал + основное хранилище</li>
-<li>Все данные пишутся два раза</li>
+<li>Journal + main storage</li>
+<li>All data stored twice
+<img alt="arch" src="../images/ceph-io.png" /></li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Хранение данных - Журнал</h3>
+<section class="slide "><div class="content"><h3>Journal</h3>
 <ul>
-<li>Небольшой циклический буффер</li>
-<li>Файл или раздел</li>
-<li>Данные в журнал пишутся синхронно</li>
-<li>Клиент не получает подтверждения, пока данные не будут записанны в журналы на всех нодах</li>
-<li>Порча журнала чаще всего невосстановима</li>
+<li>Small cycle buffer</li>
+<li>File or partition</li>
+<li>Works in a sync mode</li>
+<li>Client would not get write ack, untill data reach journal on all nodes</li>
+<li>In most cases broken journal means broked OSD</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Хранение данных - Основное хранилище</h3>
+<section class="slide "><div class="content"><h3>Main storage</h3>
 <ul>
-<li>Файлы в папках</li>
-<li>Данные пишутся асинхронно</li>
-<li>Иногда сбрасываются на диск</li>
+<li>Files in folder</li>
+<li>Async mode</li>
+<li>Eventually sync to disk (5s by default)</li>
 <li>sudo ceph daemon osd.0 config show | grep filestore</li>
 <li>sudo ceph daemon osd.0 config show | grep filestore_max_sync_interval</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Хранение данных - Рекомендации</h3>
+<section class="slide "><div class="content"><h3>Recommendation</h3>
 <ul>
-<li>Журнал на отдельном разделе SSD или на отдельном разделе</li>
-<li>4-6 журналов на SSD</li>
-<li>Размер журнала 2 * filestore_max_sync_interval * OSD_BW (~10Gb обычно)</li>
-<li>Увеличение filestore_max_sync_interval повышает производительность, но проводит к "подмерзаниям"</li>
+<li>Journal in separated partition</li>
+<li>4-6 journals per SSD</li>
+<li>J. size = 2 * filestore_max_sync_interval * OSD_BW (~10Gb)</li>
+<li>Increasing filestore_max_sync_interval increases performance, but leads to "freeses"</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Хранение данных - Основное хранилище</h3>
+<section class="slide "><div class="content"><h3>Main storage</h3>
 <ul>
-<li>Вес OSD</li>
+<li>OSD weight</li>
 <li>sudo ceph daemon osd.0 config show | grep osd_data</li>
 <li>sudo ceph daemon osd.0 config show | grep osd_journal</li>
 <li>/var/lib/ceph/osd/ceph-XXX</li>
@@ -82,37 +80,33 @@
 <li>ls -l /var/lib/ceph/osd/ceph-0</li>
 <li>ls -l /var/lib/ceph/osd/ceph-0/current</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Хранение данных - Основное хранилище</h3>
+<section class="slide "><div class="content"><h3>Main storage</h3>
+<p>OSD during start up:</p>
 <ul>
-<li>При старте OSD сканирует папку с данными</li>
-<li>Повторяет незакоммиченные операции из журнала</li>
-<li>Общается с другими OSD, что бы понять что происходило, пока оно лежало</li>
-<li>Возможно реплицирует нехватающие данные</li>
+<li>Replay uncommited operations from journal</li>
+<li>Peering all PG with other OSD</li>
+<li>Receive all missed updates</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Запись данных</h3>
+<section class="slide "><div class="content"><h3>Write sequence</h3>
 <ul>
-<li>Клиент мапит объект на PG</li>
-<li>Клиент мапит PG+Pool использую crush на набор OSD</li>
-<li>Клиент связывается с первичной OSD и передает ей операцию</li>
-<li>Первичная OSD пишет данные в журнал, в основное хранилище и передает данные в остальные OSD</li>
-<li>При этом используется отдельная репликационная сеть</li>
-<li>OSD отвечают при успешной записи</li>
-<li>Первичная OSD отвечает клиенту</li>
+<li>Client map object on PG</li>
+<li>Client uses Crush to map PG+Pool onto set of OSD</li>
+<li>Client connect to primary OSD and send write using public network</li>
+<li>Primary OSD write data to journal, main storage and on other OSD using cluster network</li>
+<li>Client get ack, when all OSD commits journal</li>
+</ul></div></section>
+<section class="slide "><div class="content"><ul>
 <li>OSD acting set</li>
 <li>full_ratio, nearfull_ratio</li>
-</ul></div></section>
-<section class="slide "><div class="content"><h3>Запись данных</h3>
-<ul>
 <li>sudo ceph daemon osd.0 config show | grep cluster_network</li>
 <li>sudo ceph daemon osd.0 config show | grep public_network</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Чтение данных</h3>
+<section class="slide "><div class="content"><h3>Read data</h3>
 <ul>
-<li>Клиент мапит объект на PG</li>
-<li>Клиент мапит PG+Pool использую crush на набор OSD</li>
-<li>Клиент связывается с первичной OSD и она возвращает ему данные</li>
+<li>Client map object on PG</li>
+<li>Client uses Crush to map PG+Pool onto set of OSD</li>
+<li>Client end read request to primary OSD</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h3>Вопросы и помидоры</h3></div></section>
 
 
 <!-- deck.status snippet -->

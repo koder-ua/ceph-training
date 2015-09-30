@@ -32,65 +32,87 @@
 <body class="deck-container">
 
 <!-- Begin slides -->
-<section class="slide "><div class="content"><h2>Операции над кластером</h2>
-<h3>Данилов Константин, Mirantis</h3>
+<section class="slide "><div class="content"><h2>Fixing ceph</h2>
+<h3>Danylov Kostiantyn, Mirantis</h3>
 <h3>http://koder-ua.blogspot.com/</h3>
 <h3>https://github.com/koder-ua/</h3></div></section>
-<section class="slide "><div class="content"><h2>Общий алгоритм</h2>
+<section class="slide "><div class="content"><h3>Root causes</h3>
 <ul>
-<li>Пытаемся поднять все, что упало</li>
-<li>Ждем, пока сеф сделает все, что может</li>
-<li>Когда сеф окончил самокопание - смотрим что с PG и чиним их руками</li>
+<li>Running out of free space (OSD would not start)</li>
+<li>Clock out of sync in cluster</li>
+<li>Network issues</li>
+<li>Disk failing</li>
+<li>Different disks used as a storages</li>
+<li>Monitor running out of free space</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h2>Диагностика общая</h2>
+<section class="slide "><div class="content"><h3>Ceph best practices</h3>
+<p>https://docs.google.com/document/d/1ShXkcdbU0jTrbuBcpVS8wdz_P4kT3yyhQa926U9yBL4</p></div></section>
+<section class="slide "><div class="content"><h3>General fix steps</h3>
 <ul>
-<li>ceph -s - отсутсвующие PG, "заблокированный запросы"</li>
+<li>Start all failed services</li>
+<li>Wait till ceph finish recovery</li>
+<li>Fix all the rest manually</li>
+<li>Update to new ceph version</li>
+</ul></div></section>
+<section class="slide "><div class="content"><h3>Performance issues</h3>
+<ul>
+<li>How performance measured</li>
+<li>wally, ceph reporing tool</li>
+<li>ALWAYS collect performance metrics during tests and on idle</li>
+<li>Check partition alligment on OSD</li>
+</ul>
+<p>BW (also limited by network)
+<em> BW ~= 150 MBps * HDD count / replication factor (if journal on SSD)
+</em> BW ~= 150 MBps * HDD count / replication factor * 2</p></div></section>
+<section class="slide "><div class="content"><h3>Diagnostic</h3>
+<ul>
+<li>ceph -s - peering/incomplete PG, "blocked requests"</li>
 <li>ceph osd tree</li>
 <li>ceph health</li>
 <li>ceph df</li>
-<li>Нагрузка на ноду - iostat/vmstat</li>
+<li>Node load - iostat/vmstat</li>
 <li>dmesg</li>
 <li>ps aux | grep osd</li>
-<li>/etc/ceph, права доступа к файлам</li>
+<li>/etc/ceph, /var/log, ... - file access right</li>
 <li>Логи</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h2>Диагностика OSD</h2>
+<section class="slide "><div class="content"><h3>OSD Diagnostic</h3>
 <ul>
-<li>Логи - /var/log/ceph/ceph-osd.XXX.log</li>
-<li>Свободное место - /var/lib/ceph/osd/ceph-0</li>
-<li>Сеть - OSD должен слушать другие ноды</li>
+<li>Logs - /var/log/ceph/ceph-osd.XXX.log</li>
+<li>Free space - /var/lib/ceph/osd/ceph-0</li>
+<li>Network - OSD should listen for other nodes</li>
 <li>tcp - 6800-6803: telnet IP 6800</li>
 <li>ceph tell osd.XXX injectargs --debug-osd 0/5</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h2>Чиним OSD</h2>
+<section class="slide "><div class="content"><h2>OSD repaire</h2>
 <ul>
-<li>Читаем логи - чиним, пробуем запустить и далее по циклу</li>
-<li>Битые PG можно переносить из /var/lib/ceph/osd/ceph-0 - НО ТОЛЬКО в пределах одного диска, через mv</li>
-<li>Ceph должен восстановить их, если копии еще есть</li>
-<li>Нет места - поднять full_ration. Перенести PG в другую папку, если они есть на других нодах</li>
+<li>Read logs, fix issue, try to start, repeat</li>
+<li>Broken PG might be moved away from /var/lib/ceph/osd/ceph-0 - BUT ONLY INSIDE SINGLE PARTITION</li>
+<li>Ceph should restore them, if other copies awailable</li>
+<li>No free space - temporary increase full_ration. Move some PG to other folder</li>
 <li>ceph_objectstore_tool --op export --pgid X.XXX .....</li>
 </ul></div></section>
 <section class="slide "><div class="content"><h2>Монитору плохо</h2>
 <ul>
-<li>Нагрузка на диск/сеть</li>
-<li>Логи</li>
-<li>Читаем логи - чиним, пробуем запустить и далее по циклу</li>
+<li>Disk/CPU network load</li>
+<li>Read logs, fix issue, try to start, repeat</li>
+<li>No free space - 'mon compact on start = True'</li>
 </ul></div></section>
 <section class="slide "><div class="content"><h2>PG состояния</h2>
 <ul>
 <li>http://ceph.com/docs/master/rados/operations/pg-states/</li>
-<li>Down - OSD с данными не запущен</li>
-<li>Peering - пытается договориться о состоянии</li>
-<li>Peered - договорился, но все плохо и не может работать с группой</li>
-<li>Backfill-toofull - нет места для бекфила - можно увеличить osd_backfull_ration</li>
-<li>Incomplete - часть данных недоступна. Запустить мертвый OSD, или извлечь данные из его диска</li>
-<li>Stale - долго тупит</li>
+<li>Down - OSD with data not running</li>
+<li>Peering - trying to agreed on PG state</li>
+<li>Peered - agreed, but something wrong, this state qould not be fixed by ceph itself</li>
+<li>Backfill-toofull - no space for backfill - increase osd_backfull_ration</li>
+<li>Incomplete - some data missed. Start all OSD, os extract data from storage</li>
+<li>Stale - no updates for a while</li>
 </ul></div></section>
-<section class="slide "><div class="content"><h2>Перенос данных с мертвого OSD</h2>
+<section class="slide "><div class="content"><h2>Extracting data from broken OSD</h2>
 <ul>
 <li>0.80.10+ - ceph_objectstore_tool --op export --pgid X.XXX .....</li>
 <li>
-<p>Необходимо архивировать с аттрибутами</p>
+<p>Or tar with '--xattrs' option</p>
 </li>
 <li>
 <p>OSD T/S: OSD don't starts, OSD flapping.</p>
